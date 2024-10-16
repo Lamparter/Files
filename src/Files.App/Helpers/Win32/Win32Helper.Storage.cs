@@ -1,6 +1,3 @@
-// Copyright (c) 2024 Files Community
-// Licensed under the MIT License. See the LICENSE.
-
 using Microsoft.Extensions.Logging;
 using Microsoft.Win32.SafeHandles;
 using System.Collections.Concurrent;
@@ -11,8 +8,14 @@ using System.Runtime.InteropServices;
 using System.Runtime.InteropServices.ComTypes;
 using System.Text;
 using System.Windows.Forms;
-using Vanara.PInvoke;
 using Windows.System;
+using Windows.Win32;
+using Windows.Win32.Foundation;
+using Windows.Win32.UI.Shell;
+using Windows.Win32.UI.WindowsAndMessaging;
+using Windows.Win32.Storage.FileSystem;
+using Windows.Win32.Graphics.Gdi;
+using Windows.Win32.System.Com;
 
 namespace Files.App.Helpers
 {
@@ -171,9 +174,9 @@ namespace Files.App.Helpers
 			string? GetDesktopAssoc()
 			{
 				var lpResult = new StringBuilder(2048);
-				var hResult = Shell32.FindExecutable(filename, null, lpResult);
+				var hResult = PInvoke.FindExecutable(filename, null, lpResult);
 
-				return hResult.ToInt64() > 32 ? lpResult.ToString() : null;
+				return hResult > 32 ? lpResult.ToString() : null;
 			}
 
 			if (checkDesktopFirst)
@@ -184,11 +187,11 @@ namespace Files.App.Helpers
 
 		public static string ExtractStringFromDLL(string file, int number)
 		{
-			var lib = Kernel32.LoadLibrary(file);
+			var lib = PInvoke.LoadLibrary(file);
 			StringBuilder result = new StringBuilder(2048);
 
-			_ = User32.LoadString(lib, number, result, result.Capacity);
-			Kernel32.FreeLibrary(lib);
+			_ = PInvoke.LoadString(lib, number, result, result.Capacity);
+			PInvoke.FreeLibrary(lib);
 
 			return result.ToString();
 		}
@@ -198,7 +201,7 @@ namespace Files.App.Helpers
 			if (string.IsNullOrEmpty(commandLine))
 				return [];
 
-			var argv = Shell32.CommandLineToArgvW(commandLine, out int argc);
+			var argv = PInvoke.CommandLineToArgvW(commandLine, out int argc);
 			if (argv == IntPtr.Zero)
 				throw new Win32Exception();
 
@@ -229,31 +232,31 @@ namespace Files.App.Helpers
 		/// <returns></returns>
 		public static byte[]? GetIconOverlay(string path, bool isDirectory)
 		{
-			var shFileInfo = new Shell32.SHFILEINFO();
-			const Shell32.SHGFI flags = Shell32.SHGFI.SHGFI_OVERLAYINDEX | Shell32.SHGFI.SHGFI_ICON | Shell32.SHGFI.SHGFI_SYSICONINDEX | Shell32.SHGFI.SHGFI_ICONLOCATION;
+			var shFileInfo = new SHFILEINFO();
+			const uint flags = (uint)(SHGFI.SHGFI_OVERLAYINDEX | SHGFI.SHGFI_ICON | SHGFI.SHGFI_SYSICONINDEX | SHGFI.SHGFI_ICONLOCATION);
 			byte[]? overlayData = null;
 
 			try
 			{
-				IntPtr result = Shell32.SHGetFileInfo(path, isDirectory ? FileAttributes.Directory : 0, ref shFileInfo, Shell32.SHFILEINFO.Size, flags);
+				IntPtr result = PInvoke.SHGetFileInfo(path, isDirectory ? FILE_FLAGS_AND_ATTRIBUTES.FILE_ATTRIBUTE_DIRECTORY : 0, ref shFileInfo, (uint)Marshal.SizeOf(shFileInfo), flags);
 				if (result == IntPtr.Zero)
 					return null;
 
-				User32.DestroyIcon(shFileInfo.hIcon);
+				PInvoke.DestroyIcon(shFileInfo.hIcon);
 
 				lock (_iconOverlayLock)
 				{
-					if (!Shell32.SHGetImageList(Shell32.SHIL.SHIL_LARGE, typeof(ComCtl32.IImageList).GUID, out var imageListOut).Succeeded)
+					if (!PInvoke.SHGetImageList(SHIL.SHIL_LARGE, typeof(IImageList).GUID, out var imageListOut).Succeeded)
 						return null;
 
-					var imageList = (ComCtl32.IImageList)imageListOut;
+					var imageList = (IImageList)imageListOut;
 
 					var overlayIdx = shFileInfo.iIcon >> 24;
 					if (overlayIdx != 0)
 					{
 						var overlayImage = imageList.GetOverlayImage(overlayIdx);
 
-						using var hOverlay = imageList.GetIcon(overlayImage, ComCtl32.IMAGELISTDRAWFLAGS.ILD_TRANSPARENT);
+						using var hOverlay = imageList.GetIcon(overlayImage, IMAGELISTDRAWFLAGS.ILD_TRANSPARENT);
 
 						if (!hOverlay.IsNull && !hOverlay.IsInvalid)
 						{
@@ -299,18 +302,18 @@ namespace Files.App.Helpers
 				using var shellItem = SafetyExtensions.IgnoreExceptions(()
 					=> ShellFolderExtensions.GetShellItemFromPathOrPIDL(path));
 
-				if (shellItem is not null && shellItem.IShellItem is Shell32.IShellItemImageFactory shellFactory)
+				if (shellItem is not null && shellItem.IShellItem is IShellItemImageFactory shellFactory)
 				{
-					var flags = Shell32.SIIGBF.SIIGBF_BIGGERSIZEOK;
+					var flags = SIIGBF.SIIGBF_BIGGERSIZEOK;
 
 					if (iconOptions.HasFlag(IconOptions.ReturnIconOnly))
-						flags |= Shell32.SIIGBF.SIIGBF_ICONONLY;
+						flags |= SIIGBF.SIIGBF_ICONONLY;
 
 					if (iconOptions.HasFlag(IconOptions.ReturnThumbnailOnly))
-						flags |= Shell32.SIIGBF.SIIGBF_THUMBNAILONLY;
+						flags |= SIIGBF.SIIGBF_THUMBNAILONLY;
 
 					if (iconOptions.HasFlag(IconOptions.ReturnOnlyIfCached))
-						flags |= Shell32.SIIGBF.SIIGBF_INCACHEONLY;
+						flags |= SIIGBF.SIIGBF_INCACHEONLY;
 
 					var hres = shellFactory.GetImage(new SIZE(size, size), flags, out var hbitmap);
 					if (hres == HRESULT.S_OK)
@@ -327,32 +330,32 @@ namespace Files.App.Helpers
 					return iconData;			
 				else
 				{
-					var shfi = new Shell32.SHFILEINFO();
-					const Shell32.SHGFI flags = Shell32.SHGFI.SHGFI_OVERLAYINDEX | Shell32.SHGFI.SHGFI_ICON | Shell32.SHGFI.SHGFI_SYSICONINDEX | Shell32.SHGFI.SHGFI_ICONLOCATION | Shell32.SHGFI.SHGFI_USEFILEATTRIBUTES;
+					var shfi = new SHFILEINFO();
+					const uint flags = (uint)(SHGFI.SHGFI_OVERLAYINDEX | SHGFI.SHGFI_ICON | SHGFI.SHGFI_SYSICONINDEX | SHGFI.SHGFI_ICONLOCATION | SHGFI.SHGFI_USEFILEATTRIBUTES);
 
 					// Cannot access file, use file attributes
 					var useFileAttibutes = iconData is null;
 
-					var ret = Shell32.SHGetFileInfo(path, isFolder ? FileAttributes.Directory : 0, ref shfi, Shell32.SHFILEINFO.Size, flags);					
+					var ret = PInvoke.SHGetFileInfo(path, isFolder ? FILE_FLAGS_AND_ATTRIBUTES.FILE_ATTRIBUTE_DIRECTORY : 0, ref shfi, (uint)Marshal.SizeOf(shfi), flags);					
 					if (ret == IntPtr.Zero)
 						return iconData;
 
-					User32.DestroyIcon(shfi.hIcon);
+					PInvoke.DestroyIcon(shfi.hIcon);
 
 					var imageListSize = size switch
 					{
-						<= 16 => Shell32.SHIL.SHIL_SMALL,
-						<= 32 => Shell32.SHIL.SHIL_LARGE,
-						<= 48 => Shell32.SHIL.SHIL_EXTRALARGE,
-						_ => Shell32.SHIL.SHIL_JUMBO,
+						<= 16 => SHIL.SHIL_SMALL,
+						<= 32 => SHIL.SHIL_LARGE,
+						<= 48 => SHIL.SHIL_EXTRALARGE,
+						_ => SHIL.SHIL_JUMBO,
 					};
 
 					lock (_iconLock)
 					{
-						if (!Shell32.SHGetImageList(imageListSize, typeof(ComCtl32.IImageList).GUID, out var imageListOut).Succeeded)
+						if (!PInvoke.SHGetImageList(imageListSize, typeof(IImageList).GUID, out var imageListOut).Succeeded)
 							return iconData;
 
-						var imageList = (ComCtl32.IImageList)imageListOut;
+						var imageList = (IImageList)imageListOut;
 
 						if (iconData is null)
 						{
@@ -360,7 +363,7 @@ namespace Files.App.Helpers
 							if (iconIdx != 0)
 							{
 								// Could not fetch thumbnail, load simple icon
-								using var hIcon = imageList.GetIcon(iconIdx, ComCtl32.IMAGELISTDRAWFLAGS.ILD_TRANSPARENT);
+								using var hIcon = imageList.GetIcon(iconIdx, IMAGELISTDRAWFLAGS.ILD_TRANSPARENT);
 								if (!hIcon.IsNull && !hIcon.IsInvalid)
 								{
 									using (var icon = hIcon.ToIcon())
@@ -460,15 +463,15 @@ namespace Files.App.Helpers
 				else
 				{
 					// This is merely to pass into the function and is unneeded otherwise
-					if (Shell32.SHDefExtractIcon(file, -1 * index, 0, out User32.SafeHICON icon, out User32.SafeHICON hIcon2, Convert.ToUInt32(iconSize)) == HRESULT.S_OK)
+					if (PInvoke.SHDefExtractIcon(file, -1 * index, 0, out SafeHICON icon, out SafeHICON hIcon2, (uint)iconSize) == HRESULT.S_OK)
 					{
 						using var image = icon.ToBitmap();
 						byte[] bitmapData = (byte[])(new ImageConverter().ConvertTo(image, typeof(byte[])) ?? Array.Empty<byte>());
 						iconInfo = new IconFileInfo(bitmapData, index);
 						_iconCache[(file, index, iconSize)] = iconInfo;
 						iconsList.Add(iconInfo);
-						User32.DestroyIcon(icon);
-						User32.DestroyIcon(hIcon2);
+						PInvoke.DestroyIcon(icon);
+						PInvoke.DestroyIcon(hIcon2);
 					}
 				}
 			}
@@ -481,11 +484,11 @@ namespace Files.App.Helpers
 			var iconsList = new List<IconFileInfo>();
 			using var currentProc = Process.GetCurrentProcess();
 
-			using var icoCnt = Shell32.ExtractIcon(currentProc.Handle, file, -1);
-			if (icoCnt is null)
+			using var icoCnt = PInvoke.ExtractIcon(currentProc.Handle, file, -1);
+			if (icoCnt == IntPtr.Zero)
 				return null;
 
-			int count = icoCnt.DangerousGetHandle().ToInt32();
+			int count = icoCnt.ToInt32();
 			if (count <= 0)
 				return null;
 
@@ -497,7 +500,7 @@ namespace Files.App.Helpers
 				}
 				else
 				{
-					using var icon = Shell32.ExtractIcon(currentProc.Handle, file, i);
+					using var icon = PInvoke.ExtractIcon(currentProc.Handle, file, i);
 					using var image = icon.ToBitmap();
 
 					byte[] bitmapData = (byte[])(new ImageConverter().ConvertTo(image, typeof(byte[])) ?? Array.Empty<byte>());
@@ -515,9 +518,9 @@ namespace Files.App.Helpers
 			if (folderPath is null)
 				return false;
 
-			var fcs = new Shell32.SHFOLDERCUSTOMSETTINGS()
+			var fcs = new SHFOLDERCUSTOMSETTINGS()
 			{
-				dwMask = Shell32.FOLDERCUSTOMSETTINGSMASK.FCSM_ICONFILE,
+				dwMask = FOLDERCUSTOMSETTINGSMASK.FCSM_ICONFILE,
 				pszIconFile = iconFile,
 				cchIconFile = 0,
 				iIconIndex = iconIndex,
@@ -525,7 +528,7 @@ namespace Files.App.Helpers
 
 			fcs.dwSize = (uint)Marshal.SizeOf(fcs);
 
-			var success = Shell32.SHGetSetFolderCustomSettings(ref fcs, folderPath, Shell32.FCS.FCS_FORCEWRITE).Succeeded;
+			var success = PInvoke.SHGetSetFolderCustomSettings(ref fcs, folderPath, FCS.FCS_FORCEWRITE).Succeeded;
 
 			return success;
 		}
@@ -595,13 +598,13 @@ namespace Files.App.Helpers
 			}
 		}
 
-		public static Shell32.ITaskbarList4? CreateTaskbarObject()
+		public static ITaskbarList4? CreateTaskbarObject()
 		{
 			try
 			{
-				var taskbar2 = new Shell32.ITaskbarList2();
+				var taskbar2 = new ITaskbarList2();
 				taskbar2.HrInit();
-				return taskbar2 as Shell32.ITaskbarList4;
+				return taskbar2 as ITaskbarList4;
 			}
 			catch (Exception)
 			{
@@ -647,7 +650,7 @@ namespace Files.App.Helpers
 
 			while (true)
 			{
-				prevHwnd = User32.FindWindowEx(HWND.NULL, prevHwnd, null, null);
+				prevHwnd = PInvoke.FindWindowEx(HWND.NULL, prevHwnd, null, null);
 				if (prevHwnd == HWND.NULL)
 					break;
 
@@ -668,22 +671,22 @@ namespace Files.App.Helpers
 				{
 					await Task.Delay(500);
 
-					var newWindows = GetDesktopWindows().Except(currentWindows).Where(x => User32.IsWindowVisible(x) && !User32.IsIconic(x));
+					var newWindows = GetDesktopWindows().Except(currentWindows).Where(x => PInvoke.IsWindowVisible(x) && !PInvoke.IsIconic(x));
 					if (newWindows.Any())
 					{
 						foreach (var newWindow in newWindows)
 						{
-							User32.SetWindowPos(
+							PInvoke.SetWindowPos(
 								newWindow,
-								User32.SpecialWindowHandles.HWND_TOPMOST,
+								SpecialWindowHandles.HWND_TOPMOST,
 								0, 0, 0, 0,
-								User32.SetWindowPosFlags.SWP_NOSIZE | User32.SetWindowPosFlags.SWP_NOMOVE);
+								SET_WINDOW_POS_FLAGS.SWP_NOSIZE | SET_WINDOW_POS_FLAGS.SWP_NOMOVE);
 
-							User32.SetWindowPos(
+							PInvoke.SetWindowPos(
 								newWindow,
-								User32.SpecialWindowHandles.HWND_NOTOPMOST,
+								SpecialWindowHandles.HWND_NOTOPMOST,
 								0, 0, 0, 0,
-								User32.SetWindowPosFlags.SWP_SHOWWINDOW | User32.SetWindowPosFlags.SWP_NOSIZE | User32.SetWindowPosFlags.SWP_NOMOVE);
+								SET_WINDOW_POS_FLAGS.SWP_SHOWWINDOW | SET_WINDOW_POS_FLAGS.SWP_NOSIZE | SET_WINDOW_POS_FLAGS.SWP_NOMOVE);
 						}
 
 						break;
@@ -702,19 +705,19 @@ namespace Files.App.Helpers
 		{
 			string? volumePath = Path.GetPathRoot(volumeHint);
 
-			using var volumeHandle = Kernel32.CreateFile(volumePath, Kernel32.FileAccess.GENERIC_READ, FileShare.Read, null, FileMode.Open, FileFlagsAndAttributes.FILE_FLAG_BACKUP_SEMANTICS);
+			using var volumeHandle = PInvoke.CreateFile(volumePath, FILE_ACCESS_FLAGS.FILE_GENERIC_READ, FILE_SHARE_MODE.FILE_SHARE_READ, null, FILE_CREATION_DISPOSITION.OPEN_EXISTING, FILE_FLAGS_AND_ATTRIBUTES.FILE_FLAG_BACKUP_SEMANTICS);
 			if (volumeHandle.IsInvalid)
 				return null;
 
-			var fileId = new Kernel32.FILE_ID_DESCRIPTOR() { Type = 0, Id = new Kernel32.FILE_ID_DESCRIPTOR.DUMMYUNIONNAME() { FileId = (long)frn } };
+			var fileId = new FILE_ID_DESCRIPTOR() { Type = FILE_ID_TYPE.FileIdType, Id = new FILE_ID_DESCRIPTOR._Anonymous_e__Union() { FileId = (long)frn } };
 			fileId.dwSize = (uint)Marshal.SizeOf(fileId);
 
-			using var hFile = Kernel32.OpenFileById(volumeHandle, fileId, Kernel32.FileAccess.GENERIC_READ, FileShare.Read, null, FileFlagsAndAttributes.FILE_FLAG_BACKUP_SEMANTICS);
+			using var hFile = PInvoke.OpenFileById(volumeHandle, fileId, FILE_ACCESS_FLAGS.FILE_GENERIC_READ, FILE_SHARE_MODE.FILE_SHARE_READ, null, FILE_FLAGS_AND_ATTRIBUTES.FILE_FLAG_BACKUP_SEMANTICS);
 			if (hFile.IsInvalid)
 				return null;
 
 			var sb = new StringBuilder(4096);
-			var ret = Kernel32.GetFinalPathNameByHandle(hFile, sb, 4095, 0);
+			var ret = PInvoke.GetFinalPathNameByHandle(hFile, sb, 4095, 0);
 
 			return (ret != 0) ? sb.ToString() : null;
 		}
@@ -731,39 +734,39 @@ namespace Files.App.Helpers
 		{
 			var opened = false;
 
-			if (Ole32.CoCreateInstance(typeof(Shell32.ShellWindows).GUID, null, Ole32.CLSCTX.CLSCTX_LOCAL_SERVER, typeof(Shell32.IShellWindows).GUID, out var shellWindowsUnk).Succeeded)
+			if (PInvoke.CoCreateInstance(typeof(ShellWindows).GUID, null, CLSCTX.CLSCTX_LOCAL_SERVER, typeof(IShellWindows).GUID, out var shellWindowsUnk).Succeeded)
 			{
-				var shellWindows = (Shell32.IShellWindows)shellWindowsUnk;
+				var shellWindows = (IShellWindows)shellWindowsUnk;
 
-				using var controlPanelCategoryView = new Vanara.Windows.Shell.ShellItem("::{26EE0668-A00A-44D7-9371-BEB064C98683}");
+				using var controlPanelCategoryView = new ShellItem("::{26EE0668-A00A-44D7-9371-BEB064C98683}");
 
 				for (int i = 0; i < shellWindows.Count; i++)
 				{
 					var item = shellWindows.Item(i);
 
-					var serv = (Shell32.IServiceProvider)item;
+					var serv = (IServiceProvider)item;
 					if (serv is not null)
 					{
-						if (serv.QueryService(Shell32.SID_STopLevelBrowser, typeof(Shell32.IShellBrowser).GUID, out var ppv).Succeeded)
+						if (serv.QueryService(SID_STopLevelBrowser, typeof(IShellBrowser).GUID, out var ppv).Succeeded)
 						{
 							var pUnk = Marshal.GetObjectForIUnknown(ppv);
-							var shellBrowser = (Shell32.IShellBrowser)pUnk;
+							var shellBrowser = (IShellBrowser)pUnk;
 
-							using var targetFolder = SafetyExtensions.IgnoreExceptions(() => new Vanara.Windows.Shell.ShellItem(folderPath));
+							using var targetFolder = SafetyExtensions.IgnoreExceptions(() => new ShellItem(folderPath));
 							if (targetFolder is not null)
 							{
 								if (shellBrowser.QueryActiveShellView(out var shellView).Succeeded)
 								{
-									var folderView = (Shell32.IFolderView)shellView;
-									var folder = folderView.GetFolder<Shell32.IPersistFolder2>();
-									var folderPidl = new Shell32.PIDL(IntPtr.Zero);
+									var folderView = (IFolderView)shellView;
+									var folder = folderView.GetFolder<IPersistFolder2>();
+									var folderPidl = new PIDL(IntPtr.Zero);
 
 									if (folder.GetCurFolder(ref folderPidl).Succeeded)
 									{
 										if (folderPidl.IsParentOf(targetFolder.PIDL.DangerousGetHandle(), true) ||
 											folderPidl.Equals(controlPanelCategoryView.PIDL))
 										{
-											if (shellBrowser.BrowseObject(targetFolder.PIDL.DangerousGetHandle(), Shell32.SBSP.SBSP_SAMEBROWSER | Shell32.SBSP.SBSP_ABSOLUTE).Succeeded)
+											if (shellBrowser.BrowseObject(targetFolder.PIDL.DangerousGetHandle(), SBSP.SBSP_SAMEBROWSER | SBSP.SBSP_ABSOLUTE).Succeeded)
 											{
 												opened = true;
 
@@ -796,13 +799,13 @@ namespace Files.App.Helpers
 
 			if (!opened)
 			{
-				Shell32.ShellExecute(
+				PInvoke.ShellExecute(
 					HWND.NULL,
 					"open",
 					Environment.ExpandEnvironmentVariables("%windir%\\explorer.exe"),
 					folderPath,
 					null,
-					ShowWindowCommand.SW_SHOWNORMAL);
+					SW.SW_SHOWNORMAL);
 			}
 		}
 
@@ -883,69 +886,69 @@ namespace Files.App.Helpers
 
 		public static SafeFileHandle CreateFileForWrite(string filePath, bool overwrite = true)
 		{
-			return new SafeFileHandle(Win32PInvoke.CreateFileFromApp(filePath,
-				Win32PInvoke.GENERIC_WRITE, 0, IntPtr.Zero, overwrite ? Win32PInvoke.CREATE_ALWAYS : Win32PInvoke.OPEN_ALWAYS, (uint)Win32PInvoke.File_Attributes.BackupSemantics, IntPtr.Zero), true);
+			return new SafeFileHandle(PInvoke.CreateFileFromAppW(filePath,
+				FILE_ACCESS_FLAGS.FILE_GENERIC_WRITE, 0, IntPtr.Zero, overwrite ? FILE_CREATION_DISPOSITION.CREATE_ALWAYS : FILE_CREATION_DISPOSITION.OPEN_ALWAYS, FILE_FLAGS_AND_ATTRIBUTES.FILE_FLAG_BACKUP_SEMANTICS, IntPtr.Zero), true);
 		}
 
 		public static SafeFileHandle OpenFileForRead(string filePath, bool readWrite = false, uint flags = 0)
 		{
-			return new SafeFileHandle(Win32PInvoke.CreateFileFromApp(filePath,
-				Win32PInvoke.GENERIC_READ | (readWrite ? Win32PInvoke.GENERIC_WRITE : 0), (uint)(Win32PInvoke.FILE_SHARE_READ | (readWrite ? 0 : Win32PInvoke.FILE_SHARE_WRITE)), IntPtr.Zero, Win32PInvoke.OPEN_EXISTING, (uint)Win32PInvoke.File_Attributes.BackupSemantics | flags, IntPtr.Zero), true);
+			return new SafeFileHandle(PInvoke.CreateFileFromAppW(filePath,
+				FILE_ACCESS_FLAGS.FILE_GENERIC_READ | (readWrite ? FILE_ACCESS_FLAGS.FILE_GENERIC_WRITE : 0), (uint)(FILE_SHARE_MODE.FILE_SHARE_READ | (readWrite ? 0 : FILE_SHARE_MODE.FILE_SHARE_WRITE)), IntPtr.Zero, FILE_CREATION_DISPOSITION.OPEN_EXISTING, FILE_FLAGS_AND_ATTRIBUTES.FILE_FLAG_BACKUP_SEMANTICS | (FILE_FLAGS_AND_ATTRIBUTES)flags, IntPtr.Zero), true);
 		}
 
 		public static bool GetFileDateModified(string filePath, out FILETIME dateModified)
 		{
-			using var hFile = new SafeFileHandle(Win32PInvoke.CreateFileFromApp(filePath, Win32PInvoke.GENERIC_READ, Win32PInvoke.FILE_SHARE_READ, IntPtr.Zero, Win32PInvoke.OPEN_EXISTING, (uint)Win32PInvoke.File_Attributes.BackupSemantics, IntPtr.Zero), true);
-			return Win32PInvoke.GetFileTime(hFile.DangerousGetHandle(), out _, out _, out dateModified);
+			using var hFile = new SafeFileHandle(PInvoke.CreateFileFromAppW(filePath, FILE_ACCESS_FLAGS.FILE_GENERIC_READ, FILE_SHARE_MODE.FILE_SHARE_READ, IntPtr.Zero, FILE_CREATION_DISPOSITION.OPEN_EXISTING, FILE_FLAGS_AND_ATTRIBUTES.FILE_FLAG_BACKUP_SEMANTICS, IntPtr.Zero), true);
+			return PInvoke.GetFileTime(hFile.DangerousGetHandle(), out _, out _, out dateModified);
 		}
 
 		public static bool SetFileDateModified(string filePath, FILETIME dateModified)
 		{
-			using var hFile = new SafeFileHandle(Win32PInvoke.CreateFileFromApp(filePath, Win32PInvoke.FILE_WRITE_ATTRIBUTES, 0, IntPtr.Zero, Win32PInvoke.OPEN_EXISTING, (uint)Win32PInvoke.File_Attributes.BackupSemantics, IntPtr.Zero), true);
-			return Win32PInvoke.SetFileTime(hFile.DangerousGetHandle(), new(), new(), dateModified);
+			using var hFile = new SafeFileHandle(PInvoke.CreateFileFromAppW(filePath, FILE_ACCESS_FLAGS.FILE_WRITE_ATTRIBUTES, 0, IntPtr.Zero, FILE_CREATION_DISPOSITION.OPEN_EXISTING, FILE_FLAGS_AND_ATTRIBUTES.FILE_FLAG_BACKUP_SEMANTICS, IntPtr.Zero), true);
+			return PInvoke.SetFileTime(hFile.DangerousGetHandle(), new(), new(), dateModified);
 		}
 
-		public static bool HasFileAttribute(string lpFileName, FileAttributes dwAttrs)
+		public static bool HasFileAttribute(string lpFileName, FILE_FLAGS_AND_ATTRIBUTES dwAttrs)
 		{
-			if (Win32PInvoke.GetFileAttributesExFromApp(
-				lpFileName, Win32PInvoke.GET_FILEEX_INFO_LEVELS.GetFileExInfoStandard, out var lpFileInfo))
+			if (PInvoke.GetFileAttributesExFromAppW(
+				lpFileName, GET_FILEEX_INFO_LEVELS.GetFileExInfoStandard, out WIN32_FILE_ATTRIBUTE_DATA lpFileInfo))
 			{
 				return (lpFileInfo.dwFileAttributes & dwAttrs) == dwAttrs;
 			}
 			return false;
 		}
 
-		public static bool SetFileAttribute(string lpFileName, FileAttributes dwAttrs)
+		public static bool SetFileAttribute(string lpFileName, FILE_FLAGS_AND_ATTRIBUTES dwAttrs)
 		{
-			if (!Win32PInvoke.GetFileAttributesExFromApp(
-				lpFileName, Win32PInvoke.GET_FILEEX_INFO_LEVELS.GetFileExInfoStandard, out var lpFileInfo))
+			if (!PInvoke.GetFileAttributesExFromAppW(
+				lpFileName, GET_FILEEX_INFO_LEVELS.GetFileExInfoStandard, out WIN32_FILE_ATTRIBUTE_DATA lpFileInfo))
 			{
 				return false;
 			}
-			return Win32PInvoke.SetFileAttributesFromApp(lpFileName, lpFileInfo.dwFileAttributes | dwAttrs);
+			return PInvoke.SetFileAttributesFromAppW(lpFileName, lpFileInfo.dwFileAttributes | dwAttrs);
 		}
 
-		public static bool UnsetFileAttribute(string lpFileName, FileAttributes dwAttrs)
+		public static bool UnsetFileAttribute(string lpFileName, FILE_FLAGS_AND_ATTRIBUTES dwAttrs)
 		{
-			if (!Win32PInvoke.GetFileAttributesExFromApp(
-				lpFileName, Win32PInvoke.GET_FILEEX_INFO_LEVELS.GetFileExInfoStandard, out var lpFileInfo))
+			if (!PInvoke.GetFileAttributesExFromAppW(
+				lpFileName, GET_FILEEX_INFO_LEVELS.GetFileExInfoStandard, out WIN32_FILE_ATTRIBUTE_DATA lpFileInfo))
 			{
 				return false;
 			}
-			return Win32PInvoke.SetFileAttributesFromApp(lpFileName, lpFileInfo.dwFileAttributes & ~dwAttrs);
+			return PInvoke.SetFileAttributesFromAppW(lpFileName, lpFileInfo.dwFileAttributes & ~dwAttrs);
 		}
 
 		public static string ReadStringFromFile(string filePath)
 		{
-			IntPtr hFile = Win32PInvoke.CreateFileFromApp(filePath,
-				Win32PInvoke.GENERIC_READ,
-				Win32PInvoke.FILE_SHARE_READ,
+			IntPtr hFile = PInvoke.CreateFileFromAppW(filePath,
+				FILE_ACCESS_FLAGS.FILE_GENERIC_READ,
+				FILE_SHARE_MODE.FILE_SHARE_READ,
 				IntPtr.Zero,
-				Win32PInvoke.OPEN_EXISTING,
-				(uint)Win32PInvoke.File_Attributes.BackupSemantics,
+				FILE_CREATION_DISPOSITION.OPEN_EXISTING,
+				FILE_FLAGS_AND_ATTRIBUTES.FILE_FLAG_BACKUP_SEMANTICS,
 				IntPtr.Zero);
 
-			if (hFile.ToInt64() == -1)
+			if (hFile == IntPtr.Zero)
 			{
 				return null;
 			}
@@ -964,7 +967,7 @@ namespace Files.App.Helpers
 					{
 						fixed (byte* pBuffer = buffer)
 						{
-							if (Win32PInvoke.ReadFile(hFile, pBuffer, BUFFER_LENGTH - 1, &dwBytesRead, IntPtr.Zero) && dwBytesRead > 0)
+							if (PInvoke.ReadFile(hFile, pBuffer, BUFFER_LENGTH - 1, &dwBytesRead, IntPtr.Zero) && dwBytesRead > 0)
 							{
 								ms.Write(buffer, 0, dwBytesRead);
 							}
@@ -979,16 +982,16 @@ namespace Files.App.Helpers
 				}
 			}
 
-			Win32PInvoke.CloseHandle(hFile);
+			PInvoke.CloseHandle(hFile);
 
 			return szRead;
 		}
 
-		public static bool WriteStringToFile(string filePath, string str, Win32PInvoke.File_Attributes flags = 0)
+		public static bool WriteStringToFile(string filePath, string str, FILE_FLAGS_AND_ATTRIBUTES flags = 0)
 		{
-			IntPtr hStream = Win32PInvoke.CreateFileFromApp(filePath,
-				Win32PInvoke.GENERIC_WRITE, 0, IntPtr.Zero, Win32PInvoke.CREATE_ALWAYS, (uint)(Win32PInvoke.File_Attributes.BackupSemantics | flags), IntPtr.Zero);
-			if (hStream.ToInt64() == -1)
+			IntPtr hStream = PInvoke.CreateFileFromAppW(filePath,
+				FILE_ACCESS_FLAGS.FILE_GENERIC_WRITE, 0, IntPtr.Zero, FILE_CREATION_DISPOSITION.CREATE_ALWAYS, FILE_FLAGS_AND_ATTRIBUTES.FILE_FLAG_BACKUP_SEMANTICS | flags, IntPtr.Zero);
+			if (hStream == IntPtr.Zero)
 			{
 				return false;
 			}
@@ -998,14 +1001,14 @@ namespace Files.App.Helpers
 			{
 				fixed (byte* pBuff = buff)
 				{
-					Win32PInvoke.WriteFile(hStream, pBuff, buff.Length, &dwBytesWritten, IntPtr.Zero);
+					PInvoke.WriteFile(hStream, pBuff, buff.Length, &dwBytesWritten, IntPtr.Zero);
 				}
 			}
-			Win32PInvoke.CloseHandle(hStream);
+			PInvoke.CloseHandle(hStream);
 			return true;
 		}
 
-		public static bool WriteBufferToFileWithProgress(string filePath, byte[] buffer, Win32PInvoke.LPOVERLAPPED_COMPLETION_ROUTINE callback)
+		public static bool WriteBufferToFileWithProgress(string filePath, byte[] buffer, LPOVERLAPPED_COMPLETION_ROUTINE callback)
 		{
 			using var hFile = CreateFileForWrite(filePath);
 
@@ -1015,7 +1018,7 @@ namespace Files.App.Helpers
 			}
 
 			NativeOverlapped nativeOverlapped = new NativeOverlapped();
-			bool result = Win32PInvoke.WriteFileEx(hFile.DangerousGetHandle(), buffer, (uint)buffer.LongLength, ref nativeOverlapped, callback);
+			bool result = PInvoke.WriteFileEx(hFile.DangerousGetHandle(), buffer, (uint)buffer.LongLength, ref nativeOverlapped, callback);
 
 			if (!result)
 			{
@@ -1031,8 +1034,8 @@ namespace Files.App.Helpers
 			using var handle = OpenFileForRead(folderPath);
 			if (!handle.IsInvalid)
 			{
-				var fileStruct = new Win32PInvoke.FILE_ID_BOTH_DIR_INFO();
-				if (Win32PInvoke.GetFileInformationByHandleEx(handle.DangerousGetHandle(), Win32PInvoke.FILE_INFO_BY_HANDLE_CLASS.FileIdBothDirectoryInfo, out fileStruct, (uint)Marshal.SizeOf(fileStruct)))
+				var fileStruct = new FILE_ID_BOTH_DIR_INFO();
+				if (PInvoke.GetFileInformationByHandleEx(handle.DangerousGetHandle(), FILE_INFO_BY_HANDLE_CLASS.FileIdBothDirectoryInfo, out fileStruct, (uint)Marshal.SizeOf(fileStruct)))
 				{
 					return (ulong)fileStruct.FileId;
 				}
@@ -1047,7 +1050,7 @@ namespace Files.App.Helpers
 			{
 				try
 				{
-					var fileID = Kernel32.GetFileInformationByHandleEx<Kernel32.FILE_ID_INFO>(handle, Kernel32.FILE_INFO_BY_HANDLE_CLASS.FileIdInfo);
+					var fileID = PInvoke.GetFileInformationByHandleEx<FILE_ID_INFO>(handle, FILE_INFO_BY_HANDLE_CLASS.FileIdInfo);
 					return BitConverter.ToUInt64(fileID.FileId.Identifier, 0);
 				}
 				catch { }
@@ -1062,7 +1065,7 @@ namespace Files.App.Helpers
 			{
 				try
 				{
-					var fileAllocationInfo = Kernel32.GetFileInformationByHandleEx<Kernel32.FILE_STANDARD_INFO>(handle, Kernel32.FILE_INFO_BY_HANDLE_CLASS.FileStandardInfo);
+					var fileAllocationInfo = PInvoke.GetFileInformationByHandleEx<FILE_STANDARD_INFO>(handle, FILE_INFO_BY_HANDLE_CLASS.FileStandardInfo);
 					return fileAllocationInfo.AllocationSize;
 				}
 				catch { }
@@ -1076,7 +1079,7 @@ namespace Files.App.Helpers
 			using var handle = OpenFileForRead(path, false, 0x00200000);
 			if (!handle.IsInvalid)
 			{
-				if (Win32PInvoke.DeviceIoControl(handle.DangerousGetHandle(), Win32PInvoke.FSCTL_GET_REPARSE_POINT, IntPtr.Zero, 0, out Win32PInvoke.REPARSE_DATA_BUFFER buffer, Win32PInvoke.MAXIMUM_REPARSE_DATA_BUFFER_SIZE, out _, IntPtr.Zero))
+				if (PInvoke.DeviceIoControl(handle.DangerousGetHandle(), FSCTL_GET_REPARSE_POINT, IntPtr.Zero, 0, out REPARSE_DATA_BUFFER buffer, MAXIMUM_REPARSE_DATA_BUFFER_SIZE, out _, IntPtr.Zero))
 				{
 					var subsString = new string(buffer.PathBuffer, ((buffer.SubsNameOffset / 2) + 2), buffer.SubsNameLength / 2);
 					var printString = new string(buffer.PathBuffer, ((buffer.PrintNameOffset / 2) + 2), buffer.PrintNameLength / 2);
@@ -1089,7 +1092,7 @@ namespace Files.App.Helpers
 							normalisedTarget = normalisedTarget.Substring(4);
 						}
 					}
-					if (buffer.ReparseTag == Win32PInvoke.IO_REPARSE_TAG_SYMLINK && (normalisedTarget.Length < 2 || normalisedTarget[1] != ':'))
+					if (buffer.ReparseTag == IO_REPARSE_TAG.IO_REPARSE_TAG_SYMLINK && (normalisedTarget.Length < 2 || normalisedTarget[1] != ':'))
 					{
 						// Target is relative, get the absolute path
 						normalisedTarget = normalisedTarget.TrimStart(Path.DirectorySeparatorChar);
@@ -1105,10 +1108,10 @@ namespace Files.App.Helpers
 		// https://stackoverflow.com/a/7988352
 		public static IEnumerable<(string Name, long Size)> GetAlternateStreams(string path)
 		{
-			Win32PInvoke.WIN32_FIND_STREAM_DATA findStreamData = new Win32PInvoke.WIN32_FIND_STREAM_DATA();
-			IntPtr hFile = Win32PInvoke.FindFirstStreamW(path, Win32PInvoke.StreamInfoLevels.FindStreamInfoStandard, findStreamData, 0);
+			WIN32_FIND_STREAM_DATA findStreamData = new WIN32_FIND_STREAM_DATA();
+			IntPtr hFile = PInvoke.FindFirstStreamW(path, STREAM_INFO_LEVELS.FindStreamInfoStandard, findStreamData, 0);
 
-			if (hFile.ToInt64() != -1)
+			if (hFile != IntPtr.Zero)
 			{
 				do
 				{
@@ -1120,29 +1123,29 @@ namespace Files.App.Helpers
 						yield return (findStreamData.cStreamName, findStreamData.StreamSize);
 					}
 				}
-				while (Win32PInvoke.FindNextStreamW(hFile, findStreamData));
+				while (PInvoke.FindNextStreamW(hFile, findStreamData));
 
-				Win32PInvoke.FindClose(hFile);
+				PInvoke.FindClose(hFile);
 			}
 		}
 
-		public static bool GetWin32FindDataForPath(string targetPath, out Win32PInvoke.WIN32_FIND_DATA findData)
+		public static bool GetWin32FindDataForPath(string targetPath, out WIN32_FIND_DATA findData)
 		{
-			Win32PInvoke.FINDEX_INFO_LEVELS findInfoLevel = Win32PInvoke.FINDEX_INFO_LEVELS.FindExInfoBasic;
+			FINDEX_INFO_LEVELS findInfoLevel = FINDEX_INFO_LEVELS.FindExInfoBasic;
 
-			int additionalFlags = Win32PInvoke.FIND_FIRST_EX_LARGE_FETCH;
+			int additionalFlags = FIND_FIRST_EX_LARGE_FETCH;
 
-			IntPtr hFile = Win32PInvoke.FindFirstFileExFromApp(
+			IntPtr hFile = PInvoke.FindFirstFileExFromAppW(
 				targetPath,
 				findInfoLevel,
 				out findData,
-				Win32PInvoke.FINDEX_SEARCH_OPS.FindExSearchNameMatch,
+				FINDEX_SEARCH_OPS.FindExSearchNameMatch,
 				IntPtr.Zero,
 				additionalFlags);
 
-			if (hFile.ToInt64() != -1)
+			if (hFile != IntPtr.Zero)
 			{
-				Win32PInvoke.FindClose(hFile);
+				PInvoke.FindClose(hFile);
 
 				return true;
 			}
