@@ -200,7 +200,8 @@
 					ScrollViewer.IsScrollInertiaEnabled="True"
 					SelectionChanged="FileList_SelectionChanged"
 					SelectionMode="Extended"
-					Tapped="FileList_ItemTapped">
+					Tapped="FileList_ItemTapped"
+					ScrollViewer.ViewChanged="FileList_ViewChanged">
 
 					<ListView.ItemTemplate>
 						<DataTemplate x:DataType="filesystem:ListedItem">
