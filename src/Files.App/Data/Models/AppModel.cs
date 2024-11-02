@@ -4,6 +4,7 @@
 using Microsoft.UI.Xaml.Controls;
 using System.Runtime.InteropServices;
 using Windows.ApplicationModel.DataTransfer;
+using Microsoft.Extensions.Logging;
 
 namespace Files.App.Data.Models
 {
@@ -14,16 +15,20 @@ namespace Files.App.Data.Models
 			Clipboard.ContentChanged += Clipboard_ContentChanged;
 		}
 
-		// TODO: Refactor this method
 		public void Clipboard_ContentChanged(object sender, object e)
 		{
 			try
 			{
-				DataPackageView packageView = Clipboard.GetContent();
+				var packageView = Clipboard.GetContent();
 				IsPasteEnabled = packageView.Contains(StandardDataFormats.StorageItems) || packageView.Contains(StandardDataFormats.Bitmap);
 			}
-			catch
+			catch (COMException)
 			{
+				IsPasteEnabled = false;
+			}
+			catch (Exception ex)
+			{
+				App.Logger.LogError(ex, ex.Message);
 				IsPasteEnabled = false;
 			}
 		}
