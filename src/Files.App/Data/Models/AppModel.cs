@@ -4,6 +4,7 @@
 using Microsoft.UI.Xaml.Controls;
 using System.Runtime.InteropServices;
 using Windows.ApplicationModel.DataTransfer;
+using Microsoft.Extensions.Logging;
 
 namespace Files.App.Data.Models
 {
@@ -45,9 +46,9 @@ namespace Files.App.Data.Models
 						mainView.ViewModel.SelectedTabItem = MainPageViewModel.AppInstances[value];
 					}
 				}
-				catch (COMException)
+				catch (Exception ex)
 				{
-
+					App.Logger.LogError(ex, ex.Message);
 				}
 			}
 		}
