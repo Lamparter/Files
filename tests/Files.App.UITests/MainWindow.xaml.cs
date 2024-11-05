@@ -4,10 +4,11 @@
 using Files.App.UITests.Views;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using WinUIEx;
 
 namespace Files.App.UITests
 {
-	public sealed partial class MainWindow : Window
+	public sealed partial class MainWindow : WindowEx
 	{
 		private static MainWindow? _Instance;
 		public static MainWindow Instance => _Instance ??= new();
