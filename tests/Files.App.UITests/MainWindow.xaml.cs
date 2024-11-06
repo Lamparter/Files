@@ -22,6 +22,8 @@ namespace Files.App.UITests
 			MainFrame.Navigate(typeof(MainPage));
 
 			TaskBarIcon = Icon.FromFile(@"Assets\PackageLogo.ico");
+
+			Title = "Files UI Tests";
 		}
 
 		private void NavigationView_SelectionChanged(NavigationView sender, NavigationViewSelectionChangedEventArgs args)
