@@ -20,6 +20,8 @@ namespace Files.App.UITests
 			ExtendsContentIntoTitleBar = true;
 
 			MainFrame.Navigate(typeof(MainPage));
+
+			TaskBarIcon = Icon.FromFile(@"Assets\PackageLogo.ico");
 		}
 
 		private void NavigationView_SelectionChanged(NavigationView sender, NavigationViewSelectionChangedEventArgs args)
