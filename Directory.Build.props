@@ -1,4 +1,4 @@
-﻿<!--  Copyright (c) 2024 Files Community. Licensed under the MIT License. See the LICENSE.  -->
+<!--  Copyright (c) 2024 Files Community. Licensed under the MIT License. See the LICENSE.  -->
 <Project>
 
     <PropertyGroup Condition="'$(MSBuildProjectExtension)' == '.csproj'">
@@ -13,11 +13,10 @@
         <Optimize Condition="'$(Configuration)' != 'Debug'">true</Optimize>
 
         <!-- Framework versions -->
-        <FrameworkVersion>net8.0</FrameworkVersion>
-        <PlatformWinVersion>10.0.22621.0</PlatformWinVersion>
-        <PlatformWinMinVersion>10.0.19041.0</PlatformWinMinVersion>
-        <TargetFramework>$(FrameworkVersion)-windows$(PlatformWinVersion)</TargetFramework>
-        <TargetPlatformMinVersion>$(PlatformWinMinVersion)</TargetPlatformMinVersion>
+        <!--<FrameworkVersion>net8.0</FrameworkVersion>
+        <PlatformVersion>10.0.22621.0</PlatformVersion>-->
+        <TargetFramework>net8.0-windows10.0.22621.0</TargetFramework>
+        <TargetPlatformMinVersion>10.0.19041.0</TargetPlatformMinVersion>
     </PropertyGroup>
 
 </Project>
