@@ -15,7 +15,7 @@
 	xmlns:keyboard="using:Files.App.UserControls.KeyboardShortcut"
 	xmlns:local="using:Files.App.UserControls"
 	xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-	xmlns:triggers="using:CommunityToolkit.WinUI.UI.Triggers"
+	xmlns:triggers="using:CommunityToolkit.WinUI.Triggers"
 	xmlns:uc="using:Files.App.UserControls"
 	xmlns:ucs="using:Files.App.UserControls.StatusCenter"
 	xmlns:vm="using:Files.App.ViewModels.UserControls"

@@ -12,7 +12,7 @@
 	xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
 	xmlns:properties="using:Files.App.ViewModels.Properties"
 	xmlns:toolkit="using:CommunityToolkit.WinUI.UI.Controls"
-	xmlns:triggers="using:CommunityToolkit.WinUI.UI.Triggers"
+	xmlns:triggers="using:CommunityToolkit.WinUI.Triggers"
 	xmlns:usercontrols="using:Files.App.UserControls"
 	x:Name="Root"
 	MinWidth="90"
