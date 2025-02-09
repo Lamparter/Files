@@ -1,6 +1,6 @@
 <!--  Copyright (c) Files Community. Licensed under the MIT License.  -->
 <Project Sdk="Microsoft.NET.Sdk">
-
+    <Import Project="CurrentVersion.props" />
     <PropertyGroup>
         <TargetFramework>net8.0-windows10.0.22621.0</TargetFramework>
         <TargetPlatformMinVersion>10.0.19041.0</TargetPlatformMinVersion>
@@ -30,7 +30,6 @@
         <PackageRequireLicenseAcceptance>True</PackageRequireLicenseAcceptance>
         <IncludeSymbols>True</IncludeSymbols>
         <SymbolPackageFormat>snupkg</SymbolPackageFormat>
-        <!--Version>{version}</Version>-->
         <PackageProjectUrl>https://files.community</PackageProjectUrl>
         <PackageIcon>StoreLogo.scale-400.png</PackageIcon>
     </PropertyGroup>
