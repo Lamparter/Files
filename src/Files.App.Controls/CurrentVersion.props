@@ -5,11 +5,11 @@
       You can bump the version here in a PR and when it is merged the controls project
       will be automatically published to NuGet online. -->
 <Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
-    <PropertyGroup>
-        <MajorVersion>1</MajorVersion>
-        <MinorVersion>0</MinorVersion>
-        <!-- This version is bumped automatically by CI. -->
-        <MicroVersion>0</MicroVersion>
-        <Version>$(MajorVersion).$(MinorVersion).$(MicroVersion)</Version>
-    </PropertyGroup>
+  <PropertyGroup>
+    <MajorVersion>1</MajorVersion>
+    <MinorVersion>0</MinorVersion>
+    <!-- This version is bumped automatically by CI. -->
+    <MicroVersion>1</MicroVersion>
+    <Version>$(MajorVersion).$(MinorVersion).$(MicroVersion)</Version>
+  </PropertyGroup>
 </Project>
