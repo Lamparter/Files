@@ -9,7 +9,7 @@
     <MajorVersion>1</MajorVersion>
     <MinorVersion>0</MinorVersion>
     <!-- This version is bumped automatically by CI. -->
-    <MicroVersion>1</MicroVersion>
+    <MicroVersion>2</MicroVersion>
     <Version>$(MajorVersion).$(MinorVersion).$(MicroVersion)</Version>
   </PropertyGroup>
 </Project>
