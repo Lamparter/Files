@@ -6,4 +6,7 @@
     <MinimalWindowsVersion>10.0.19041.0</MinimalWindowsVersion>
     <WindowsSdkPackageVersion>10.0.22621.57</WindowsSdkPackageVersion>
   </PropertyGroup>
+  <ItemGroup>
+    <AdditionalFiles Include="$(MSBuildThisFileDirectory)\.github\StyleCop.json" Link="StyleCop.json" />
+  </ItemGroup>
 </Project>
