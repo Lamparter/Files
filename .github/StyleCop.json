@@ -1,0 +1,12 @@
+{
+  "$schema": "https://raw.githubusercontent.com/DotNetAnalyzers/StyleCopAnalyzers/master/StyleCop.Analyzers/StyleCop.Analyzers/Settings/stylecop.schema.json",
+  "settings": {
+    "documentationRules": {
+      "companyName": "Files Community",
+      "copyrightText": "Copyright (c) {companyName}.\r\nLicensed under the MIT License."
+    },
+    "orderingRules": {
+      "usingDirectivesPlacement": "outsideNamespace"
+    }
+  }
+}
