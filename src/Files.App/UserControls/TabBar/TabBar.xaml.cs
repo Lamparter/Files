@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 using CommunityToolkit.WinUI;
+using Microsoft.UI.Input;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
@@ -371,6 +372,16 @@ namespace Files.App.UserControls.TabBar
 			HorizontalTabView.Measure(new(
 				HorizontalTabView.ActualWidth - TabBarAddNewTabButton.Width - titleBarInset,
 				HorizontalTabView.ActualHeight));
+		}
+
+		private void DragAreaRectangle_PointerPressed(object sender, PointerRoutedEventArgs e)
+		{
+			var point = e.GetCurrentPoint((UIElement)sender);
+
+			if (point.Properties.PointerUpdateKind == PointerUpdateKind.MiddleButtonPressed)
+			{
+				Debug.WriteLine("Middle clicked!");
+			}
 		}
 	}
 }
