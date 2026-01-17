@@ -1,4 +1,4 @@
-// Copyright (c) Files Community
+﻿// Copyright (c) Files Community
 // Licensed under the MIT License.
 
 using Microsoft.Extensions.Logging;
@@ -15,6 +15,7 @@ namespace Files.App.Views
 		// Dependency injections
 		public ReleaseNotesViewModel ViewModel { get; } = Ioc.Default.GetRequiredService<ReleaseNotesViewModel>();
 
+		private bool _webViewInitialized;
 
 		private FrameworkElement RootAppElement
 			=> (FrameworkElement)MainWindow.Instance.Content;
@@ -77,12 +78,34 @@ namespace Files.App.Views
 
 			AppInstance.ToolbarViewModel.PathComponents.Add(item);
 
+			await InitializeWebViewAsync();
+
 			base.OnNavigatedTo(e);
 		}
 
 		protected override void OnNavigatedFrom(NavigationEventArgs e)
 		{
 			Dispose();
+		}
+
+		private async Task InitializeWebViewAsync()
+		{
+			if (_webViewInitialized)
+				return;
+
+			try
+			{
+				var environment = await CoreWebView2Environment.CreateAsync();
+				var options = environment.CreateCoreWebView2ControllerOptions();
+				options.AllowHostInputProcessing = true;
+
+				await BlogPostWebView.EnsureCoreWebView2Async(environment, options);
+				_webViewInitialized = true;
+			}
+			catch (Exception ex)
+			{
+				App.Logger.LogWarning(ex, ex.Message);
+			}
 		}
 
 		private async void BlogPostWebView_CoreWebView2Initialized(WebView2 sender, CoreWebView2InitializedEventArgs args)
