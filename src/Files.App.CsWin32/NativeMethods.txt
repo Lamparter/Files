@@ -270,3 +270,4 @@ CertGetNameString
 IShellItemArray
 ILFree
 SharingConfigurationManager
+CLSCTX
