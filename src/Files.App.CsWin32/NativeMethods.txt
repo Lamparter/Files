@@ -1,4 +1,4 @@
-// Copyright (c) Files Community
+﻿// Copyright (c) Files Community
 // Licensed under the MIT License.
 
 WNDPROC
@@ -89,6 +89,7 @@ IDesktopWallpaper
 DesktopWallpaper
 SHCreateShellItemArrayFromIDLists
 ILCreateFromPath
+CoTaskMemFree
 CLSIDFromString
 FindWindow
 SendMessage
@@ -267,3 +268,6 @@ WINTRUST_DATA
 HCERTSTORE
 CERT_QUERY_ENCODING_TYPE
 CertGetNameString
+IShellItemArray
+ILFree
+SharingConfigurationManager
