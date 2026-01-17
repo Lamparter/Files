@@ -1,4 +1,4 @@
-// Copyright (c) Files Community
+﻿// Copyright (c) Files Community
 // Licensed under the MIT License.
 
 WNDPROC
@@ -267,3 +267,6 @@ WINTRUST_DATA
 HCERTSTORE
 CERT_QUERY_ENCODING_TYPE
 CertGetNameString
+IShellItemArray
+ILFree
+SharingConfigurationManager

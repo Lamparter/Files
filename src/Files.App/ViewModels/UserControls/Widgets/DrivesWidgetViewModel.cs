@@ -156,10 +156,15 @@ namespace Files.App.ViewModels.UserControls.Widgets
 					Tag = "ManageBitLockerPlaceholder",
 					IsEnabled = false
 				},
+				new ContextMenuFlyoutItemViewModelBuilder(CommandManager["GiveAccessTo"])
+				{
+					IsVisible = CommandManager["GiveAccessTo"].IsExecutable
+				}.Build(),
 				new ContextMenuFlyoutItemViewModel()
 				{
 					ItemType = ContextMenuFlyoutItemType.Separator,
-					ShowItem = (UserSettingsService.GeneralSettingsService.ShowOpenTerminal && CommandManager.OpenTerminalFromHome.IsExecutable) ||
+					ShowItem = CommandManager["GiveAccessTo"].IsExecutable ||
+						(UserSettingsService.GeneralSettingsService.ShowOpenTerminal && CommandManager.OpenTerminalFromHome.IsExecutable) ||
 						CommandManager.OpenStorageSenseFromHome.IsExecutable ||
 						CommandManager.FormatDriveFromHome.IsExecutable
 				},
