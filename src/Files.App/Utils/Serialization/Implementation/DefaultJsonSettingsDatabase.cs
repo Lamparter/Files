@@ -1,16 +1,27 @@
 // Copyright (c) Files Community
 // Licensed under the MIT License.
 
+using Files.App;
+using Files.App.Extensions;
+using Files.App.Helpers;
+using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Controls;
 using System.Collections.Concurrent;
+using System.Diagnostics;
 using System.Text.Json;
+using System.Threading;
 
 namespace Files.App.Utils.Serialization.Implementation
 {
 	internal class DefaultJsonSettingsDatabase : IJsonSettingsDatabase
 	{
+		private IDialogService DialogService { get; } = Ioc.Default.GetRequiredService<IDialogService>();
+
 		protected ISettingsSerializer SettingsSerializer { get; }
 
 		protected IJsonSettingsSerializer JsonSettingsSerializer { get; }
+
+		private int _isShowingInvalidSettingsDialog;
 
 		public DefaultJsonSettingsDatabase(ISettingsSerializer settingsSerializer, IJsonSettingsSerializer jsonSettingsSerializer)
 		{
@@ -31,11 +42,45 @@ namespace Files.App.Utils.Serialization.Implementation
 			{
 				return JsonSettingsSerializer.DeserializeFromJson<ConcurrentDictionary<string, object?>?>(data) ?? new();
 			}
-			catch (Exception)
+			catch (Exception ex)
 			{
 				// Occurs if the settings file has invalid json
-				// TODO Display prompt to notify user #710
+				HandleInvalidSettings(ex);
 				return JsonSettingsSerializer.DeserializeFromJson<ConcurrentDictionary<string, object?>?>("null") ?? new();
+			}
+		}
+
+		private async void HandleInvalidSettings(Exception exception)
+		{
+			if (JsonSettingsSerializer is null || SettingsSerializer is null)
+			{
+				return;
+			}
+
+			if (Interlocked.Exchange(ref _isShowingInvalidSettingsDialog, 1) == 1)
+			{
+				return;
+			}
+
+			try
+			{
+				SaveSettings(new ConcurrentDictionary<string, object?>());
+			}
+			catch (Exception resetEx)
+			{
+				Debug.WriteLine(resetEx);
+			}
+
+			try
+			{
+				DialogDisplayHelper.ShowDialogAsync(
+					"Failed to reload settings",
+					exception.Message,
+					"OK").Wait();
+			}
+			finally
+			{
+				_isShowingInvalidSettingsDialog = 0;
 			}
 		}
 
