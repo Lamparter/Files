@@ -34,7 +34,7 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <None Include="..\Files.App (Package)\Assets\AppTiles\Release\StoreLogo.scale-400.png">
+        <None Include="..\Files.App\Assets\AppTiles\Release\StoreLogo.scale-400.png">
             <Pack>True</Pack>
             <PackagePath>\</PackagePath>
         </None>
