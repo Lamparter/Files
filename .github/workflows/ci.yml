@@ -24,6 +24,7 @@ on:
       - 'builds/**'
       - 'docs/**'
       - '*.md'
+  workflow_dispatch:
 
 run-name: ${{ github.event_name == 'pull_request' && 'Files PR Validation' || 'Files CI Validation' }}
 
@@ -81,9 +82,6 @@ jobs:
       run: exit 1
 
   build:
-
-    if: github.repository_owner == 'files-community'
-
     runs-on: windows-2025-vs2026
     strategy:
       fail-fast: false
@@ -111,6 +109,7 @@ jobs:
       shell: pwsh
       run: |
         msbuild $env:SOLUTION_PATH `
+          -maxcpucount `
           -t:Restore `
           -p:Platform=$env:ARCHITECTURE `
           -p:Configuration=$env:CONFIGURATION `
@@ -120,8 +119,8 @@ jobs:
     - if: env.CONFIGURATION != env.AUTOMATED_TESTS_CONFIGURATION || env.ARCHITECTURE != env.AUTOMATED_TESTS_ARCHITECTURE 
       name: Build Files
       run: |
-        msbuild `
-          $env:APP_PROJECT_PATH `
+        msbuild $env:APP_PROJECT_PATH `
+          -maxcpucount `
           -t:Build `
           -p:Configuration=$env:CONFIGURATION `
           -p:Platform=$env:ARCHITECTURE `
@@ -136,8 +135,8 @@ jobs:
     - if: env.CONFIGURATION == env.AUTOMATED_TESTS_CONFIGURATION && env.ARCHITECTURE == env.AUTOMATED_TESTS_ARCHITECTURE
       name: Build & package Files
       run: |
-        msbuild `
-          $env:APP_PROJECT_PATH `
+        msbuild $env:APP_PROJECT_PATH `
+          -maxcpucount `
           -t:Build `
           -p:Configuration=$env:CONFIGURATION `
           -p:Platform=$env:ARCHITECTURE `
@@ -156,6 +155,7 @@ jobs:
       name: Build interaction tests
       run: |
         msbuild $env:AUTOMATED_TESTS_PROJECT_PATH `
+          -maxcpucount `
           -t:Build `
           -p:Configuration=$env:CONFIGURATION `
           -p:Platform=$env:AUTOMATED_TESTS_ARCHITECTURE `
